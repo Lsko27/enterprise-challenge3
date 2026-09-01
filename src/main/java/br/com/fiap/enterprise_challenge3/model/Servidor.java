@@ -1,6 +1,16 @@
 package br.com.fiap.enterprise_challenge3.model;
 
-import jakarta.persistence.*;
+import br.com.fiap.enterprise_challenge3.model.enums.PerfilServidor;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
@@ -51,8 +61,20 @@ public class Servidor {
     )
     private String senha;
 
-    @Column(name = "DS_CARGO", length = 100)
+    @Column(
+            name = "DS_CARGO",
+            length = 100
+    )
     private String cargo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "DS_PERFIL",
+            nullable = false,
+            length = 30
+    )
+    private PerfilServidor perfil =
+            PerfilServidor.SERVIDOR;
 
     @Column(
             name = "DT_CADASTRO",
@@ -61,10 +83,30 @@ public class Servidor {
     )
     private LocalDateTime dataCadastro;
 
-    @Column(name = "ATIVO", nullable = false)
+    @Column(
+            name = "ATIVO",
+            nullable = false
+    )
     private Boolean ativo = true;
 
     public Servidor() {
+    }
+
+    public Servidor(
+            String nome,
+            String matricula,
+            String email,
+            String senha,
+            String cargo,
+            PerfilServidor perfil
+    ) {
+        this.nome = nome;
+        this.matricula = matricula;
+        this.email = email;
+        this.senha = senha;
+        this.cargo = cargo;
+        this.perfil = perfil;
+        this.ativo = true;
     }
 
     @PrePersist
@@ -75,6 +117,10 @@ public class Servidor {
 
         if (ativo == null) {
             ativo = true;
+        }
+
+        if (perfil == null) {
+            perfil = PerfilServidor.SERVIDOR;
         }
     }
 
@@ -100,6 +146,10 @@ public class Servidor {
 
     public String getCargo() {
         return cargo;
+    }
+
+    public PerfilServidor getPerfil() {
+        return perfil;
     }
 
     public LocalDateTime getDataCadastro() {

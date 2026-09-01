@@ -36,7 +36,9 @@ public class ServidorAuthService {
                 request.matricula().trim();
 
         Servidor servidor = servidorRepository
-                .findByMatriculaIgnoreCase(matricula)
+                .findByMatriculaIgnoreCase(
+                        matricula
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.UNAUTHORIZED,
@@ -44,7 +46,9 @@ public class ServidorAuthService {
                         )
                 );
 
-        if (!Boolean.TRUE.equals(servidor.getAtivo())) {
+        if (!Boolean.TRUE.equals(
+                servidor.getAtivo()
+        )) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Servidor desativado"
@@ -65,7 +69,9 @@ public class ServidorAuthService {
         }
 
         String token =
-                jwtService.gerarToken(servidor);
+                jwtService.gerarToken(
+                        servidor
+                );
 
         return new ServidorLoginResponse(
                 token,
@@ -74,6 +80,7 @@ public class ServidorAuthService {
                 servidor.getId(),
                 servidor.getNome(),
                 servidor.getCargo(),
+                servidor.getPerfil(),
                 "Login realizado com sucesso"
         );
     }

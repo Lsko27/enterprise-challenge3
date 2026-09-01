@@ -51,57 +51,90 @@ public class JwtAuthenticationFilter
                         HttpHeaders.AUTHORIZATION
                 );
 
-        if (cabecalho == null ||
-                !cabecalho.startsWith("Bearer ")) {
+        if (
+                cabecalho == null
+                        || !cabecalho.startsWith(
+                        "Bearer "
+                )
+        ) {
+            filterChain.doFilter(
+                    request,
+                    response
+            );
 
-            filterChain.doFilter(request, response);
             return;
         }
 
         String token =
-                cabecalho.substring(7).trim();
+                cabecalho
+                        .substring(7)
+                        .trim();
 
         try {
             Long usuarioId =
-                    jwtService.extrairUsuarioId(token);
+                    jwtService.extrairUsuarioId(
+                            token
+                    );
 
-            String perfil =
-                    jwtService.extrairPerfil(token);
+            String perfilDoToken =
+                    jwtService.extrairPerfil(
+                            token
+                    );
 
             boolean naoAutenticado =
                     SecurityContextHolder
                             .getContext()
-                            .getAuthentication() == null;
+                            .getAuthentication()
+                            == null;
 
             if (naoAutenticado) {
                 autenticarUsuario(
                         usuarioId,
-                        perfil,
+                        perfilDoToken,
                         request
                 );
             }
 
-        } catch (JwtException |
-                 IllegalArgumentException exception) {
-
+        } catch (
+                JwtException
+                | IllegalArgumentException exception
+        ) {
             SecurityContextHolder.clearContext();
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(
+                request,
+                response
+        );
     }
 
     private void autenticarUsuario(
             Long usuarioId,
-            String perfil,
+            String perfilDoToken,
             HttpServletRequest request
     ) {
-        if ("CIDADAO".equals(perfil)) {
-            autenticarCidadao(usuarioId, request);
+        if (
+                "CIDADAO".equals(
+                        perfilDoToken
+                )
+        ) {
+            autenticarCidadao(
+                    usuarioId,
+                    request
+            );
+
             return;
         }
 
-        if ("SERVIDOR".equals(perfil)) {
-            autenticarServidor(usuarioId, request);
+        if (
+                "SERVIDOR".equals(
+                        perfilDoToken
+                )
+        ) {
+            autenticarServidor(
+                    usuarioId,
+                    request
+            );
         }
     }
 
@@ -109,14 +142,19 @@ public class JwtAuthenticationFilter
             Long cidadaoId,
             HttpServletRequest request
     ) {
-        Cidadao cidadao = cidadaoRepository
-                .findById(cidadaoId)
-                .filter(usuario ->
-                        Boolean.TRUE.equals(
-                                usuario.getAtivo()
+        Cidadao cidadao =
+                cidadaoRepository
+                        .findById(
+                                cidadaoId
                         )
-                )
-                .orElse(null);
+                        .filter(usuario ->
+                                Boolean.TRUE.equals(
+                                        usuario.getAtivo()
+                                )
+                        )
+                        .orElse(
+                                null
+                        );
 
         if (cidadao == null) {
             return;
@@ -133,22 +171,33 @@ public class JwtAuthenticationFilter
             Long servidorId,
             HttpServletRequest request
     ) {
-        Servidor servidor = servidorRepository
-                .findById(servidorId)
-                .filter(usuario ->
-                        Boolean.TRUE.equals(
-                                usuario.getAtivo()
+        Servidor servidor =
+                servidorRepository
+                        .findById(
+                                servidorId
                         )
-                )
-                .orElse(null);
+                        .filter(usuario ->
+                                Boolean.TRUE.equals(
+                                        usuario.getAtivo()
+                                )
+                        )
+                        .orElse(
+                                null
+                        );
 
         if (servidor == null) {
             return;
         }
 
+        String autoridade =
+                "ROLE_"
+                        + servidor
+                        .getPerfil()
+                        .name();
+
         criarAutenticacao(
                 servidor.getId(),
-                "ROLE_SERVIDOR",
+                autoridade,
                 request
         );
     }
@@ -174,15 +223,21 @@ public class JwtAuthenticationFilter
 
         authentication.setDetails(
                 new WebAuthenticationDetailsSource()
-                        .buildDetails(request)
+                        .buildDetails(
+                                request
+                        )
         );
 
         SecurityContext context =
                 SecurityContextHolder
                         .createEmptyContext();
 
-        context.setAuthentication(authentication);
+        context.setAuthentication(
+                authentication
+        );
 
-        SecurityContextHolder.setContext(context);
+        SecurityContextHolder.setContext(
+                context
+        );
     }
 }

@@ -22,24 +22,31 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationFilter
+            jwtAuthenticationFilter;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.jwtAuthenticationFilter =
+                jwtAuthenticationFilter;
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origin:http://localhost:3000}")
+    public CorsConfigurationSource
+    corsConfigurationSource(
+            @Value(
+                    "${app.cors.allowed-origin:http://localhost:3000}"
+            )
             String origemPermitida
     ) {
         CorsConfiguration configuracao =
                 new CorsConfiguration();
 
         configuracao.setAllowedOrigins(
-                List.of(origemPermitida)
+                List.of(
+                        origemPermitida
+                )
         );
 
         configuracao.setAllowedMethods(
@@ -72,16 +79,24 @@ public class SecurityConfig {
         );
 
         /*
-         * O projeto usa JWT no header Authorization,
-         * e não autenticação baseada em cookies.
+         * O navegador se comunica com o BFF do Next.js
+         * por meio de cookie HttpOnly.
+         *
+         * O BFF envia o JWT ao backend Java pelo header
+         * Authorization. Por isso, o backend não precisa
+         * aceitar credenciais CORS baseadas em cookies.
          */
-        configuracao.setAllowCredentials(false);
+        configuracao.setAllowCredentials(
+                false
+        );
 
         /*
          * Mantém o resultado do preflight em cache
          * durante uma hora.
          */
-        configuracao.setMaxAge(3600L);
+        configuracao.setMaxAge(
+                3600L
+        );
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -107,11 +122,22 @@ public class SecurityConfig {
                         )
                 )
 
-                .csrf(csrf -> csrf.disable())
+                /*
+                 * O backend Java não autentica por cookie.
+                 * O JWT chega pelo header Authorization
+                 * enviado pelo BFF.
+                 */
+                .csrf(csrf ->
+                        csrf.disable()
+                )
 
-                .formLogin(form -> form.disable())
+                .formLogin(form ->
+                        form.disable()
+                )
 
-                .httpBasic(basic -> basic.disable())
+                .httpBasic(basic ->
+                        basic.disable()
+                )
 
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
@@ -145,11 +171,25 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
-                                 * Login público do servidor.
+                                 * Login público de servidores
+                                 * e auditores.
                                  */
                                 .requestMatchers(
                                         HttpMethod.POST,
                                         "/api/auth/servidor/login"
+                                ).permitAll()
+
+                                /*
+                                 * Bootstrap local do primeiro
+                                 * auditor.
+                                 *
+                                 * O controller só existe no
+                                 * perfil Spring "local" e exige
+                                 * o header X-Setup-Key.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/setup/auditor"
                                 ).permitAll()
 
                                 /*
@@ -161,37 +201,95 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
-                                 * Rotas do próprio cidadão.
+                                 * Consulta do próprio perfil
+                                 * do cidadão.
                                  */
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/cidadaos/me"
-                                ).hasRole("CIDADAO")
+                                ).hasRole(
+                                        "CIDADAO"
+                                )
 
+                                /*
+                                 * Atualização do próprio perfil
+                                 * do cidadão.
+                                 */
                                 .requestMatchers(
                                         HttpMethod.PUT,
                                         "/api/cidadaos/me"
-                                ).hasRole("CIDADAO")
+                                ).hasRole(
+                                        "CIDADAO"
+                                )
 
+                                /*
+                                 * Desativação da própria conta
+                                 * do cidadão.
+                                 */
                                 .requestMatchers(
                                         HttpMethod.PATCH,
                                         "/api/cidadaos/me/desativar"
-                                ).hasRole("CIDADAO")
+                                ).hasRole(
+                                        "CIDADAO"
+                                )
 
                                 /*
-                                 * Bloqueia listagem geral e acesso
-                                 * a cidadãos por ID.
+                                 * Bloqueia listagem geral e
+                                 * acesso a cidadãos por ID.
                                  */
                                 .requestMatchers(
                                         "/api/cidadaos/**"
                                 ).denyAll()
 
                                 /*
-                                 * Rotas exclusivas do servidor.
+                                 * Trilhas completas de auditoria.
+                                 *
+                                 * Somente o perfil de governança
+                                 * pode acessar.
+                                 */
+                                .requestMatchers(
+                                        "/api/servidor/auditoria/**"
+                                ).hasRole(
+                                        "AUDITOR"
+                                )
+
+                                /*
+                                 * Relatórios estatísticos.
+                                 *
+                                 * Servidores operacionais e
+                                 * auditores podem consultar.
+                                 */
+                                .requestMatchers(
+                                        "/api/servidor/relatorios/**"
+                                ).hasAnyRole(
+                                        "SERVIDOR",
+                                        "AUDITOR"
+                                )
+
+                                /*
+                                 * Consulta do próprio perfil
+                                 * de servidor ou auditor.
+                                 */
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/servidor/me"
+                                ).hasAnyRole(
+                                        "SERVIDOR",
+                                        "AUDITOR"
+                                )
+
+                                /*
+                                 * Demais funcionalidades do
+                                 * servidor, incluindo atendimento
+                                 * e alteração de solicitações.
+                                 *
+                                 * Auditores não possuem acesso.
                                  */
                                 .requestMatchers(
                                         "/api/servidor/**"
-                                ).hasRole("SERVIDOR")
+                                ).hasRole(
+                                        "SERVIDOR"
+                                )
 
                                 /*
                                  * Status público da API.
@@ -223,18 +321,24 @@ public class SecurityConfig {
                                 ).denyAll()
 
                                 /*
-                                 * Notificações do cidadão.
+                                 * Notificações exclusivas
+                                 * do cidadão autenticado.
                                  */
                                 .requestMatchers(
                                         "/api/notificacoes/**"
-                                ).hasRole("CIDADAO")
+                                ).hasRole(
+                                        "CIDADAO"
+                                )
 
                                 /*
-                                 * Solicitações do cidadão.
+                                 * Solicitações exclusivas
+                                 * do cidadão autenticado.
                                  */
                                 .requestMatchers(
                                         "/api/solicitacoes/**"
-                                ).hasRole("CIDADAO")
+                                ).hasRole(
+                                        "CIDADAO"
+                                )
 
                                 /*
                                  * Tratamento interno de erros.
@@ -244,7 +348,8 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
-                                 * Bloqueia rotas não declaradas.
+                                 * Qualquer rota que não tenha
+                                 * sido declarada será bloqueada.
                                  */
                                 .anyRequest()
                                 .denyAll()
