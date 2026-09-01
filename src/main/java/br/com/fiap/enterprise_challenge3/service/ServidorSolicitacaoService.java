@@ -2,6 +2,7 @@ package br.com.fiap.enterprise_challenge3.service;
 
 import br.com.fiap.enterprise_challenge3.dto.AtualizarStatusSolicitacaoRequest;
 import br.com.fiap.enterprise_challenge3.dto.HistoricoSolicitacaoResponse;
+import br.com.fiap.enterprise_challenge3.dto.ItemFilaTriagemResponse;
 import br.com.fiap.enterprise_challenge3.dto.ServidorSolicitacaoResponse;
 import br.com.fiap.enterprise_challenge3.model.HistoricoSolicitacao;
 import br.com.fiap.enterprise_challenge3.model.Solicitacao;
@@ -13,11 +14,39 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
 import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Queue;
 
 @Service
 @Transactional
 public class ServidorSolicitacaoService {
+
+    private static final List<StatusSolicitacao>
+            STATUS_DA_FILA = List.of(
+            StatusSolicitacao.REGISTRADA,
+            StatusSolicitacao.EM_TRIAGEM
+    );
+
+    private static final Comparator<Solicitacao>
+            COMPARADOR_DA_FILA = Comparator
+            .comparingInt(
+                    (Solicitacao solicitacao) ->
+                            solicitacao
+                                    .getUrgencia()
+                                    .getPrioridade()
+            )
+            .reversed()
+            .thenComparing(
+                    Solicitacao::getDataAbertura
+            )
+            .thenComparing(
+                    Solicitacao::getId
+            );
 
     private final SolicitacaoRepository solicitacaoRepository;
     private final HistoricoSolicitacaoRepository historicoRepository;
@@ -43,11 +72,49 @@ public class ServidorSolicitacaoService {
     }
 
     @Transactional(readOnly = true)
+    public List<ItemFilaTriagemResponse> listarFilaTriagem() {
+        List<Solicitacao> solicitacoesPendentes =
+                solicitacaoRepository.findAllByStatusIn(
+                        STATUS_DA_FILA
+                );
+
+        Queue<Solicitacao> fila =
+                new PriorityQueue<>(
+                        COMPARADOR_DA_FILA
+                );
+
+        fila.addAll(solicitacoesPendentes);
+
+        List<ItemFilaTriagemResponse> itensOrdenados =
+                new ArrayList<>(fila.size());
+
+        int posicao = 1;
+
+        while (!fila.isEmpty()) {
+            Solicitacao proximaSolicitacao =
+                    fila.remove();
+
+            itensOrdenados.add(
+                    ItemFilaTriagemResponse.fromEntity(
+                            posicao,
+                            proximaSolicitacao
+                    )
+            );
+
+            posicao++;
+        }
+
+        return List.copyOf(itensOrdenados);
+    }
+
+    @Transactional(readOnly = true)
     public ServidorSolicitacaoResponse buscarPorId(
             Long solicitacaoId
     ) {
         Solicitacao solicitacao =
-                encontrarSolicitacao(solicitacaoId);
+                encontrarSolicitacao(
+                        solicitacaoId
+                );
 
         return ServidorSolicitacaoResponse.fromEntity(
                 solicitacao
@@ -65,8 +132,47 @@ public class ServidorSolicitacaoService {
                         solicitacaoId
                 )
                 .stream()
-                .map(HistoricoSolicitacaoResponse::fromEntity)
+                .map(
+                        HistoricoSolicitacaoResponse::fromEntity
+                )
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<HistoricoSolicitacaoResponse>
+    listarHistoricoReverso(
+            Long solicitacaoId
+    ) {
+        encontrarSolicitacao(solicitacaoId);
+
+        List<HistoricoSolicitacao> historicoCronologico =
+                historicoRepository
+                        .findAllBySolicitacao_IdOrderByDataAlteracaoAsc(
+                                solicitacaoId
+                        );
+
+        Deque<HistoricoSolicitacaoResponse> pilha =
+                new ArrayDeque<>();
+
+        historicoCronologico
+                .stream()
+                .map(
+                        HistoricoSolicitacaoResponse::fromEntity
+                )
+                .forEach(pilha::push);
+
+        List<HistoricoSolicitacaoResponse> historicoReverso =
+                new ArrayList<>(
+                        pilha.size()
+                );
+
+        while (!pilha.isEmpty()) {
+            historicoReverso.add(
+                    pilha.pop()
+            );
+        }
+
+        return List.copyOf(historicoReverso);
     }
 
     public ServidorSolicitacaoResponse atualizarStatus(
@@ -74,7 +180,9 @@ public class ServidorSolicitacaoService {
             AtualizarStatusSolicitacaoRequest request
     ) {
         Solicitacao solicitacao =
-                encontrarSolicitacao(solicitacaoId);
+                encontrarSolicitacao(
+                        solicitacaoId
+                );
 
         StatusSolicitacao statusAnterior =
                 solicitacao.getStatus();
@@ -89,14 +197,18 @@ public class ServidorSolicitacaoService {
             );
         }
 
-        validarStatusPermitidoParaServidor(statusNovo);
+        validarStatusPermitidoParaServidor(
+                statusNovo
+        );
 
         validarTransicao(
                 statusAnterior,
                 statusNovo
         );
 
-        solicitacao.setStatus(statusNovo);
+        solicitacao.setStatus(
+                statusNovo
+        );
 
         Solicitacao solicitacaoSalva =
                 solicitacaoRepository.saveAndFlush(
@@ -129,7 +241,9 @@ public class ServidorSolicitacaoService {
             Long solicitacaoId
     ) {
         return solicitacaoRepository
-                .buscarPorIdComDetalhes(solicitacaoId)
+                .buscarPorIdComDetalhes(
+                        solicitacaoId
+                )
                 .orElseThrow(() ->
                         new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
@@ -141,9 +255,11 @@ public class ServidorSolicitacaoService {
     private void validarStatusPermitidoParaServidor(
             StatusSolicitacao statusNovo
     ) {
-        if (statusNovo == StatusSolicitacao.REGISTRADA
-                || statusNovo == StatusSolicitacao.CANCELADA) {
-
+        if (
+                statusNovo == StatusSolicitacao.REGISTRADA
+                        || statusNovo
+                        == StatusSolicitacao.CANCELADA
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "O servidor não pode definir esse status"
@@ -210,6 +326,8 @@ public class ServidorSolicitacaoService {
                         observacao
                 );
 
-        historicoRepository.save(historico);
+        historicoRepository.save(
+                historico
+        );
     }
 }
