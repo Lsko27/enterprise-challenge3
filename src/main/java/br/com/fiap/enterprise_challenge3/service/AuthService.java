@@ -2,7 +2,12 @@ package br.com.fiap.enterprise_challenge3.service;
 
 import br.com.fiap.enterprise_challenge3.dto.LoginRequest;
 import br.com.fiap.enterprise_challenge3.dto.LoginResponse;
+import br.com.fiap.enterprise_challenge3.dto.auditoria.ContextoAuditoria;
 import br.com.fiap.enterprise_challenge3.model.Cidadao;
+import br.com.fiap.enterprise_challenge3.model.enums.AcaoAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.ResultadoAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.TipoAtorAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.TipoRecursoAuditoria;
 import br.com.fiap.enterprise_challenge3.repository.CidadaoRepository;
 import br.com.fiap.enterprise_challenge3.security.JwtService;
 import org.springframework.http.HttpStatus;
@@ -18,49 +23,97 @@ public class AuthService {
     private final CidadaoRepository cidadaoRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RegistroAuditoriaService auditoriaService;
 
     public AuthService(
             CidadaoRepository cidadaoRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            RegistroAuditoriaService auditoriaService
     ) {
         this.cidadaoRepository = cidadaoRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.auditoriaService = auditoriaService;
     }
 
-    public LoginResponse login(LoginRequest request) {
-        String cpf = normalizarCpf(request.cpf());
+    public LoginResponse login(
+            LoginRequest request,
+            ContextoAuditoria contextoAuditoria
+    ) {
+        String cpf =
+                normalizarCpf(request.cpf());
 
-        Cidadao cidadao = cidadaoRepository
-                .findByCpf(cpf)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.UNAUTHORIZED,
-                                "CPF ou senha inválidos"
-                        )
-                );
+        Cidadao cidadao =
+                cidadaoRepository
+                        .findByCpf(cpf)
+                        .orElse(null);
 
-        if (!Boolean.TRUE.equals(cidadao.getAtivo())) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Usuário desativado"
+        if (cidadao == null) {
+            registrarLogin(
+                    TipoAtorAuditoria.SISTEMA,
+                    null,
+                    null,
+                    ResultadoAuditoria.NEGADO,
+                    contextoAuditoria,
+                    "Falha no login de cidadão: credenciais inválidas"
             );
-        }
 
-        boolean senhaCorreta = passwordEncoder.matches(
-                request.senha(),
-                cidadao.getSenha()
-        );
-
-        if (!senhaCorreta) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "CPF ou senha inválidos"
             );
         }
 
-        String token = jwtService.gerarToken(cidadao);
+        if (!Boolean.TRUE.equals(cidadao.getAtivo())) {
+            registrarLogin(
+                    TipoAtorAuditoria.CIDADAO,
+                    cidadao.getId(),
+                    cidadao.getId().toString(),
+                    ResultadoAuditoria.NEGADO,
+                    contextoAuditoria,
+                    "Falha no login de cidadão: conta inativa"
+            );
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Usuário desativado"
+            );
+        }
+
+        boolean senhaCorreta =
+                passwordEncoder.matches(
+                        request.senha(),
+                        cidadao.getSenha()
+                );
+
+        if (!senhaCorreta) {
+            registrarLogin(
+                    TipoAtorAuditoria.CIDADAO,
+                    cidadao.getId(),
+                    cidadao.getId().toString(),
+                    ResultadoAuditoria.NEGADO,
+                    contextoAuditoria,
+                    "Falha no login de cidadão: credenciais inválidas"
+            );
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "CPF ou senha inválidos"
+            );
+        }
+
+        String token =
+                jwtService.gerarToken(cidadao);
+
+        registrarLogin(
+                TipoAtorAuditoria.CIDADAO,
+                cidadao.getId(),
+                cidadao.getId().toString(),
+                ResultadoAuditoria.SUCESSO,
+                contextoAuditoria,
+                "Login de cidadão realizado com sucesso"
+        );
 
         return new LoginResponse(
                 token,
@@ -72,7 +125,34 @@ public class AuthService {
         );
     }
 
-    private String normalizarCpf(String cpf) {
-        return cpf.replaceAll("\\D", "");
+    private void registrarLogin(
+            TipoAtorAuditoria tipoAtor,
+            Long atorId,
+            String recursoId,
+            ResultadoAuditoria resultado,
+            ContextoAuditoria contextoAuditoria,
+            String detalhe
+    ) {
+        auditoriaService.registrar(
+                tipoAtor,
+                atorId,
+                AcaoAuditoria.LOGIN,
+                TipoRecursoAuditoria.CIDADAO,
+                recursoId,
+                null,
+                null,
+                resultado,
+                contextoAuditoria,
+                detalhe
+        );
+    }
+
+    private String normalizarCpf(
+            String cpf
+    ) {
+        return cpf.replaceAll(
+                "\\D",
+                ""
+        );
     }
 }

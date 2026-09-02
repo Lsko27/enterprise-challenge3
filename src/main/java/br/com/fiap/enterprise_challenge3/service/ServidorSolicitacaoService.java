@@ -4,9 +4,14 @@ import br.com.fiap.enterprise_challenge3.dto.AtualizarStatusSolicitacaoRequest;
 import br.com.fiap.enterprise_challenge3.dto.HistoricoSolicitacaoResponse;
 import br.com.fiap.enterprise_challenge3.dto.ItemFilaTriagemResponse;
 import br.com.fiap.enterprise_challenge3.dto.ServidorSolicitacaoResponse;
+import br.com.fiap.enterprise_challenge3.dto.auditoria.ContextoAuditoria;
 import br.com.fiap.enterprise_challenge3.model.HistoricoSolicitacao;
 import br.com.fiap.enterprise_challenge3.model.Solicitacao;
+import br.com.fiap.enterprise_challenge3.model.enums.AcaoAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.ResultadoAuditoria;
 import br.com.fiap.enterprise_challenge3.model.enums.StatusSolicitacao;
+import br.com.fiap.enterprise_challenge3.model.enums.TipoAtorAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.TipoRecursoAuditoria;
 import br.com.fiap.enterprise_challenge3.repository.HistoricoSolicitacaoRepository;
 import br.com.fiap.enterprise_challenge3.repository.SolicitacaoRepository;
 import org.springframework.http.HttpStatus;
@@ -51,15 +56,18 @@ public class ServidorSolicitacaoService {
     private final SolicitacaoRepository solicitacaoRepository;
     private final HistoricoSolicitacaoRepository historicoRepository;
     private final NotificacaoService notificacaoService;
+    private final RegistroAuditoriaService auditoriaService;
 
     public ServidorSolicitacaoService(
             SolicitacaoRepository solicitacaoRepository,
             HistoricoSolicitacaoRepository historicoRepository,
-            NotificacaoService notificacaoService
+            NotificacaoService notificacaoService,
+            RegistroAuditoriaService auditoriaService
     ) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.historicoRepository = historicoRepository;
         this.notificacaoService = notificacaoService;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional(readOnly = true)
@@ -86,7 +94,9 @@ public class ServidorSolicitacaoService {
         fila.addAll(solicitacoesPendentes);
 
         List<ItemFilaTriagemResponse> itensOrdenados =
-                new ArrayList<>(fila.size());
+                new ArrayList<>(
+                        fila.size()
+                );
 
         int posicao = 1;
 
@@ -104,7 +114,9 @@ public class ServidorSolicitacaoService {
             posicao++;
         }
 
-        return List.copyOf(itensOrdenados);
+        return List.copyOf(
+                itensOrdenados
+        );
     }
 
     @Transactional(readOnly = true)
@@ -122,10 +134,13 @@ public class ServidorSolicitacaoService {
     }
 
     @Transactional(readOnly = true)
-    public List<HistoricoSolicitacaoResponse> listarHistorico(
+    public List<HistoricoSolicitacaoResponse>
+    listarHistorico(
             Long solicitacaoId
     ) {
-        encontrarSolicitacao(solicitacaoId);
+        encontrarSolicitacao(
+                solicitacaoId
+        );
 
         return historicoRepository
                 .findAllBySolicitacao_IdOrderByDataAlteracaoAsc(
@@ -143,7 +158,9 @@ public class ServidorSolicitacaoService {
     listarHistoricoReverso(
             Long solicitacaoId
     ) {
-        encontrarSolicitacao(solicitacaoId);
+        encontrarSolicitacao(
+                solicitacaoId
+        );
 
         List<HistoricoSolicitacao> historicoCronologico =
                 historicoRepository
@@ -159,9 +176,12 @@ public class ServidorSolicitacaoService {
                 .map(
                         HistoricoSolicitacaoResponse::fromEntity
                 )
-                .forEach(pilha::push);
+                .forEach(
+                        pilha::push
+                );
 
-        List<HistoricoSolicitacaoResponse> historicoReverso =
+        List<HistoricoSolicitacaoResponse>
+                historicoReverso =
                 new ArrayList<>(
                         pilha.size()
                 );
@@ -172,12 +192,16 @@ public class ServidorSolicitacaoService {
             );
         }
 
-        return List.copyOf(historicoReverso);
+        return List.copyOf(
+                historicoReverso
+        );
     }
 
     public ServidorSolicitacaoResponse atualizarStatus(
             Long solicitacaoId,
-            AtualizarStatusSolicitacaoRequest request
+            AtualizarStatusSolicitacaoRequest request,
+            Long servidorId,
+            ContextoAuditoria contextoAuditoria
     ) {
         Solicitacao solicitacao =
                 encontrarSolicitacao(
@@ -232,6 +256,19 @@ public class ServidorSolicitacaoService {
                 observacao
         );
 
+        auditoriaService.registrar(
+                TipoAtorAuditoria.SERVIDOR,
+                servidorId,
+                AcaoAuditoria.ALTERACAO_STATUS_SOLICITACAO,
+                TipoRecursoAuditoria.SOLICITACAO,
+                solicitacaoSalva.getId().toString(),
+                statusAnterior.name(),
+                statusNovo.name(),
+                ResultadoAuditoria.SUCESSO,
+                contextoAuditoria,
+                "Status da solicitação alterado por servidor"
+        );
+
         return ServidorSolicitacaoResponse.fromEntity(
                 solicitacaoSalva
         );
@@ -256,7 +293,8 @@ public class ServidorSolicitacaoService {
             StatusSolicitacao statusNovo
     ) {
         if (
-                statusNovo == StatusSolicitacao.REGISTRADA
+                statusNovo
+                        == StatusSolicitacao.REGISTRADA
                         || statusNovo
                         == StatusSolicitacao.CANCELADA
         ) {
@@ -273,7 +311,6 @@ public class ServidorSolicitacaoService {
     ) {
         boolean transicaoPermitida =
                 switch (statusAnterior) {
-
                     case REGISTRADA ->
                             statusNovo
                                     == StatusSolicitacao.EM_TRIAGEM;

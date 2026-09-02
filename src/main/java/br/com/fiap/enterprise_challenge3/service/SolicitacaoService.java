@@ -1,5 +1,10 @@
 package br.com.fiap.enterprise_challenge3.service;
 
+import br.com.fiap.enterprise_challenge3.dto.auditoria.ContextoAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.AcaoAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.ResultadoAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.TipoAtorAuditoria;
+import br.com.fiap.enterprise_challenge3.model.enums.TipoRecursoAuditoria;
 import br.com.fiap.enterprise_challenge3.dto.EnderecoRequest;
 import br.com.fiap.enterprise_challenge3.event.SolicitacaoCriadaEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -33,19 +38,22 @@ public class SolicitacaoService {
     private final SubservicoRepository subservicoRepository;
     private final HistoricoSolicitacaoRepository historicoRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final RegistroAuditoriaService auditoriaService;
 
     public SolicitacaoService(
             SolicitacaoRepository solicitacaoRepository,
             CidadaoRepository cidadaoRepository,
             SubservicoRepository subservicoRepository,
             HistoricoSolicitacaoRepository historicoRepository,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            RegistroAuditoriaService auditoriaService
     ) {
         this.solicitacaoRepository = solicitacaoRepository;
         this.cidadaoRepository = cidadaoRepository;
         this.subservicoRepository = subservicoRepository;
         this.historicoRepository = historicoRepository;
         this.eventPublisher = eventPublisher;
+        this.auditoriaService = auditoriaService;
     }
 
     public SolicitacaoResponse cadastrar(
@@ -142,7 +150,8 @@ public class SolicitacaoService {
 
     public void cancelar(
             Long solicitacaoId,
-            Long cidadaoId
+            Long cidadaoId,
+            ContextoAuditoria contextoAuditoria
     ) {
         Solicitacao solicitacao =
                 encontrarSolicitacaoDoCidadao(
@@ -151,7 +160,8 @@ public class SolicitacaoService {
                 );
 
         boolean podeCancelar =
-                solicitacao.getStatus() == StatusSolicitacao.REGISTRADA
+                solicitacao.getStatus()
+                        == StatusSolicitacao.REGISTRADA
                         || solicitacao.getStatus()
                         == StatusSolicitacao.EM_TRIAGEM;
 
@@ -165,15 +175,32 @@ public class SolicitacaoService {
         StatusSolicitacao statusAnterior =
                 solicitacao.getStatus();
 
-        solicitacao.setStatus(StatusSolicitacao.CANCELADA);
+        solicitacao.setStatus(
+                StatusSolicitacao.CANCELADA
+        );
 
-        solicitacaoRepository.save(solicitacao);
+        solicitacaoRepository.saveAndFlush(
+                solicitacao
+        );
 
         registrarHistorico(
                 solicitacao,
                 statusAnterior,
                 StatusSolicitacao.CANCELADA,
                 "Solicitação cancelada pelo cidadão"
+        );
+
+        auditoriaService.registrar(
+                TipoAtorAuditoria.CIDADAO,
+                cidadaoId,
+                AcaoAuditoria.CANCELAMENTO_SOLICITACAO,
+                TipoRecursoAuditoria.SOLICITACAO,
+                solicitacaoId.toString(),
+                statusAnterior.name(),
+                StatusSolicitacao.CANCELADA.name(),
+                ResultadoAuditoria.SUCESSO,
+                contextoAuditoria,
+                "Solicitação cancelada pelo próprio cidadão"
         );
     }
 

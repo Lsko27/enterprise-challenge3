@@ -1,7 +1,11 @@
 package br.com.fiap.enterprise_challenge3.controller;
 
-import br.com.fiap.enterprise_challenge3.dto.*;
+import br.com.fiap.enterprise_challenge3.dto.HistoricoSolicitacaoResponse;
+import br.com.fiap.enterprise_challenge3.dto.SolicitacaoCreateRequest;
+import br.com.fiap.enterprise_challenge3.dto.SolicitacaoResponse;
+import br.com.fiap.enterprise_challenge3.dto.auditoria.ContextoAuditoria;
 import br.com.fiap.enterprise_challenge3.service.SolicitacaoService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +30,12 @@ public class SolicitacaoController {
     @PostMapping
     public ResponseEntity<SolicitacaoResponse> cadastrar(
             Authentication authentication,
-            @Valid @RequestBody SolicitacaoCreateRequest request
+
+            @Valid @RequestBody
+            SolicitacaoCreateRequest request
     ) {
-        Long cidadaoId = extrairCidadaoId(authentication);
+        Long cidadaoId =
+                extrairCidadaoId(authentication);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -41,22 +48,28 @@ public class SolicitacaoController {
     }
 
     @GetMapping("/minhas")
-    public ResponseEntity<List<SolicitacaoResponse>> listarMinhas(
+    public ResponseEntity<List<SolicitacaoResponse>>
+    listarMinhas(
             Authentication authentication
     ) {
-        Long cidadaoId = extrairCidadaoId(authentication);
+        Long cidadaoId =
+                extrairCidadaoId(authentication);
 
         return ResponseEntity.ok(
-                solicitacaoService.listarMinhas(cidadaoId)
+                solicitacaoService.listarMinhas(
+                        cidadaoId
+                )
         );
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SolicitacaoResponse> buscarMinhaPorId(
+    public ResponseEntity<SolicitacaoResponse>
+    buscarMinhaPorId(
             @PathVariable Long id,
             Authentication authentication
     ) {
-        Long cidadaoId = extrairCidadaoId(authentication);
+        Long cidadaoId =
+                extrairCidadaoId(authentication);
 
         return ResponseEntity.ok(
                 solicitacaoService.buscarMinhaPorId(
@@ -67,11 +80,13 @@ public class SolicitacaoController {
     }
 
     @GetMapping("/{id}/historico")
-    public ResponseEntity<List<HistoricoSolicitacaoResponse>> listarHistorico(
+    public ResponseEntity<List<HistoricoSolicitacaoResponse>>
+    listarHistorico(
             @PathVariable Long id,
             Authentication authentication
     ) {
-        Long cidadaoId = extrairCidadaoId(authentication);
+        Long cidadaoId =
+                extrairCidadaoId(authentication);
 
         return ResponseEntity.ok(
                 solicitacaoService.listarHistorico(
@@ -84,24 +99,30 @@ public class SolicitacaoController {
     @PatchMapping("/{id}/cancelar")
     public ResponseEntity<Void> cancelar(
             @PathVariable Long id,
-            Authentication authentication
+            Authentication authentication,
+            HttpServletRequest httpRequest
     ) {
-        Long cidadaoId = extrairCidadaoId(authentication);
+        Long cidadaoId =
+                extrairCidadaoId(authentication);
 
         solicitacaoService.cancelar(
                 id,
-                cidadaoId
+                cidadaoId,
+                ContextoAuditoria.from(httpRequest)
         );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 
     private Long extrairCidadaoId(
             Authentication authentication
     ) {
-        if (authentication == null ||
-                !authentication.isAuthenticated()) {
-
+        if (
+                authentication == null
+                        || !authentication.isAuthenticated()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Usuário não autenticado"
@@ -109,7 +130,9 @@ public class SolicitacaoController {
         }
 
         try {
-            return Long.valueOf(authentication.getName());
+            return Long.valueOf(
+                    authentication.getName()
+            );
 
         } catch (NumberFormatException exception) {
             throw new ResponseStatusException(

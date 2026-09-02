@@ -3,7 +3,9 @@ package br.com.fiap.enterprise_challenge3.controller;
 import br.com.fiap.enterprise_challenge3.dto.CidadaoCreateRequest;
 import br.com.fiap.enterprise_challenge3.dto.CidadaoResponse;
 import br.com.fiap.enterprise_challenge3.dto.CidadaoUpdateRequest;
+import br.com.fiap.enterprise_challenge3.dto.auditoria.ContextoAuditoria;
 import br.com.fiap.enterprise_challenge3.service.CidadaoService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,41 +25,42 @@ public class CidadaoController {
         this.cidadaoService = cidadaoService;
     }
 
-    /*
-     * Cadastro público.
-     * Ainda não existe usuário autenticado nesse momento.
-     */
     @PostMapping
     public ResponseEntity<CidadaoResponse> cadastrar(
-            @Valid @RequestBody CidadaoCreateRequest request
+            @Valid @RequestBody
+            CidadaoCreateRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(cidadaoService.cadastrar(request));
+                .body(
+                        cidadaoService.cadastrar(request)
+                );
     }
 
-    /*
-     * Retorna somente o cidadão identificado pelo JWT.
-     */
     @GetMapping("/me")
     public ResponseEntity<CidadaoResponse> buscarMeuPerfil(
-            Authentication authentication
+            Authentication authentication,
+            HttpServletRequest httpRequest
     ) {
         Long cidadaoId =
                 extrairCidadaoId(authentication);
 
         return ResponseEntity.ok(
-                cidadaoService.buscarPorId(cidadaoId)
+                cidadaoService.buscarPorId(
+                        cidadaoId,
+                        ContextoAuditoria.from(httpRequest)
+                )
         );
     }
 
-    /*
-     * Atualiza somente o cidadão identificado pelo JWT.
-     */
     @PutMapping("/me")
     public ResponseEntity<CidadaoResponse> atualizarMeuPerfil(
             Authentication authentication,
-            @Valid @RequestBody CidadaoUpdateRequest request
+
+            @Valid @RequestBody
+            CidadaoUpdateRequest request,
+
+            HttpServletRequest httpRequest
     ) {
         Long cidadaoId =
                 extrairCidadaoId(authentication);
@@ -65,32 +68,37 @@ public class CidadaoController {
         return ResponseEntity.ok(
                 cidadaoService.atualizar(
                         cidadaoId,
-                        request
+                        request,
+                        ContextoAuditoria.from(httpRequest)
                 )
         );
     }
 
-    /*
-     * Desativa somente o cidadão identificado pelo JWT.
-     */
     @PatchMapping("/me/desativar")
     public ResponseEntity<Void> desativarMeuPerfil(
-            Authentication authentication
+            Authentication authentication,
+            HttpServletRequest httpRequest
     ) {
         Long cidadaoId =
                 extrairCidadaoId(authentication);
 
-        cidadaoService.desativar(cidadaoId);
+        cidadaoService.desativar(
+                cidadaoId,
+                ContextoAuditoria.from(httpRequest)
+        );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 
     private Long extrairCidadaoId(
             Authentication authentication
     ) {
-        if (authentication == null ||
-                !authentication.isAuthenticated()) {
-
+        if (
+                authentication == null
+                        || !authentication.isAuthenticated()
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Usuário não autenticado"

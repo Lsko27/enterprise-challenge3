@@ -1,17 +1,16 @@
 package br.com.fiap.enterprise_challenge3.config;
 
+import br.com.fiap.enterprise_challenge3.security.AuditoriaAccessDeniedHandler;
+import br.com.fiap.enterprise_challenge3.security.AuditoriaAuthenticationEntryPoint;
 import br.com.fiap.enterprise_challenge3.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.HttpStatusAccessDeniedHandler;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -25,11 +24,25 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter
             jwtAuthenticationFilter;
 
+    private final AuditoriaAuthenticationEntryPoint
+            authenticationEntryPoint;
+
+    private final AuditoriaAccessDeniedHandler
+            accessDeniedHandler;
+
     public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuditoriaAuthenticationEntryPoint authenticationEntryPoint,
+            AuditoriaAccessDeniedHandler accessDeniedHandler
     ) {
         this.jwtAuthenticationFilter =
                 jwtAuthenticationFilter;
+
+        this.authenticationEntryPoint =
+                authenticationEntryPoint;
+
+        this.accessDeniedHandler =
+                accessDeniedHandler;
     }
 
     @Bean
@@ -68,10 +81,6 @@ public class SecurityConfig {
                 )
         );
 
-        /*
-         * Permite que o frontend leia o nome original
-         * dos anexos durante o download.
-         */
         configuracao.setExposedHeaders(
                 List.of(
                         HttpHeaders.CONTENT_DISPOSITION
@@ -79,21 +88,19 @@ public class SecurityConfig {
         );
 
         /*
-         * O navegador se comunica com o BFF do Next.js
-         * por meio de cookie HttpOnly.
+         * O navegador envia o cookie HttpOnly ao BFF
+         * do Next.js.
          *
-         * O BFF envia o JWT ao backend Java pelo header
-         * Authorization. Por isso, o backend não precisa
-         * aceitar credenciais CORS baseadas em cookies.
+         * O BFF extrai o JWT do cookie e o envia ao
+         * backend Java pelo header Authorization.
+         *
+         * O backend Java não utiliza autenticação
+         * baseada em cookie.
          */
         configuracao.setAllowCredentials(
                 false
         );
 
-        /*
-         * Mantém o resultado do preflight em cache
-         * durante uma hora.
-         */
         configuracao.setMaxAge(
                 3600L
         );
@@ -123,9 +130,8 @@ public class SecurityConfig {
                 )
 
                 /*
-                 * O backend Java não autentica por cookie.
-                 * O JWT chega pelo header Authorization
-                 * enviado pelo BFF.
+                 * O JWT chega pelo header Authorization.
+                 * O backend não autentica por cookie.
                  */
                 .csrf(csrf ->
                         csrf.disable()
@@ -145,17 +151,16 @@ public class SecurityConfig {
                         )
                 )
 
+                /*
+                 * Registra na trilha as respostas 401 e 403.
+                 */
                 .exceptionHandling(exception ->
                         exception
                                 .authenticationEntryPoint(
-                                        new HttpStatusEntryPoint(
-                                                HttpStatus.UNAUTHORIZED
-                                        )
+                                        authenticationEntryPoint
                                 )
                                 .accessDeniedHandler(
-                                        new HttpStatusAccessDeniedHandler(
-                                                HttpStatus.FORBIDDEN
-                                        )
+                                        accessDeniedHandler
                                 )
                 )
 
@@ -180,12 +185,10 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
-                                 * Bootstrap local do primeiro
-                                 * auditor.
+                                 * Bootstrap local do primeiro auditor.
                                  *
-                                 * O controller só existe no
-                                 * perfil Spring "local" e exige
-                                 * o header X-Setup-Key.
+                                 * O controller dessa rota só existe
+                                 * quando o perfil "local" está ativo.
                                  */
                                 .requestMatchers(
                                         HttpMethod.POST,
@@ -193,7 +196,7 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
-                                 * Cadastro público do cidadão.
+                                 * Cadastro público de cidadão.
                                  */
                                 .requestMatchers(
                                         HttpMethod.POST,
@@ -234,8 +237,8 @@ public class SecurityConfig {
                                 )
 
                                 /*
-                                 * Bloqueia listagem geral e
-                                 * acesso a cidadãos por ID.
+                                 * Impede listagem geral de cidadãos
+                                 * e consultas por ID.
                                  */
                                 .requestMatchers(
                                         "/api/cidadaos/**"
@@ -243,11 +246,10 @@ public class SecurityConfig {
 
                                 /*
                                  * Trilhas completas de auditoria.
-                                 *
-                                 * Somente o perfil de governança
-                                 * pode acessar.
+                                 * Apenas governança pode consultar.
                                  */
                                 .requestMatchers(
+                                        "/api/servidor/auditoria",
                                         "/api/servidor/auditoria/**"
                                 ).hasRole(
                                         "AUDITOR"
@@ -255,11 +257,10 @@ public class SecurityConfig {
 
                                 /*
                                  * Relatórios estatísticos.
-                                 *
-                                 * Servidores operacionais e
-                                 * auditores podem consultar.
+                                 * Servidores e auditores podem acessar.
                                  */
                                 .requestMatchers(
+                                        "/api/servidor/relatorios",
                                         "/api/servidor/relatorios/**"
                                 ).hasAnyRole(
                                         "SERVIDOR",
@@ -267,8 +268,8 @@ public class SecurityConfig {
                                 )
 
                                 /*
-                                 * Consulta do próprio perfil
-                                 * de servidor ou auditor.
+                                 * Consulta do próprio perfil de
+                                 * servidor ou auditor.
                                  */
                                 .requestMatchers(
                                         HttpMethod.GET,
@@ -279,11 +280,9 @@ public class SecurityConfig {
                                 )
 
                                 /*
-                                 * Demais funcionalidades do
-                                 * servidor, incluindo atendimento
-                                 * e alteração de solicitações.
-                                 *
-                                 * Auditores não possuem acesso.
+                                 * Funcionalidades operacionais.
+                                 * Auditores não podem alterar ou
+                                 * atender solicitações.
                                  */
                                 .requestMatchers(
                                         "/api/servidor/**"
@@ -313,7 +312,8 @@ public class SecurityConfig {
                                 ).permitAll()
 
                                 /*
-                                 * Bloqueia alterações no catálogo.
+                                 * Alterações no catálogo não estão
+                                 * expostas pela API pública.
                                  */
                                 .requestMatchers(
                                         "/api/categorias/**",
@@ -321,8 +321,7 @@ public class SecurityConfig {
                                 ).denyAll()
 
                                 /*
-                                 * Notificações exclusivas
-                                 * do cidadão autenticado.
+                                 * Notificações exclusivas do cidadão.
                                  */
                                 .requestMatchers(
                                         "/api/notificacoes/**"
@@ -331,8 +330,7 @@ public class SecurityConfig {
                                 )
 
                                 /*
-                                 * Solicitações exclusivas
-                                 * do cidadão autenticado.
+                                 * Solicitações exclusivas do cidadão.
                                  */
                                 .requestMatchers(
                                         "/api/solicitacoes/**"
@@ -341,15 +339,15 @@ public class SecurityConfig {
                                 )
 
                                 /*
-                                 * Tratamento interno de erros.
+                                 * Permite o tratamento interno
+                                 * de respostas de erro.
                                  */
                                 .requestMatchers(
                                         "/error"
                                 ).permitAll()
 
                                 /*
-                                 * Qualquer rota que não tenha
-                                 * sido declarada será bloqueada.
+                                 * Bloqueia qualquer rota não declarada.
                                  */
                                 .anyRequest()
                                 .denyAll()

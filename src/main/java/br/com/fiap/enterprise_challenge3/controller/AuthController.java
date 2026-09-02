@@ -4,8 +4,10 @@ import br.com.fiap.enterprise_challenge3.dto.LoginRequest;
 import br.com.fiap.enterprise_challenge3.dto.LoginResponse;
 import br.com.fiap.enterprise_challenge3.dto.ServidorLoginRequest;
 import br.com.fiap.enterprise_challenge3.dto.ServidorLoginResponse;
+import br.com.fiap.enterprise_challenge3.dto.auditoria.ContextoAuditoria;
 import br.com.fiap.enterprise_challenge3.service.AuthService;
 import br.com.fiap.enterprise_challenge3.service.ServidorAuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,10 +30,16 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> loginCidadao(
-            @Valid @RequestBody LoginRequest request
+            @Valid @RequestBody
+            LoginRequest request,
+
+            HttpServletRequest httpRequest
     ) {
         return ResponseEntity.ok(
-                authService.login(request)
+                authService.login(
+                        request,
+                        ContextoAuditoria.from(httpRequest)
+                )
         );
     }
 
@@ -39,10 +47,15 @@ public class AuthController {
     public ResponseEntity<ServidorLoginResponse>
     loginServidor(
             @Valid @RequestBody
-            ServidorLoginRequest request
+            ServidorLoginRequest request,
+
+            HttpServletRequest httpRequest
     ) {
         return ResponseEntity.ok(
-                servidorAuthService.login(request)
+                servidorAuthService.login(
+                        request,
+                        ContextoAuditoria.from(httpRequest)
+                )
         );
     }
 }
