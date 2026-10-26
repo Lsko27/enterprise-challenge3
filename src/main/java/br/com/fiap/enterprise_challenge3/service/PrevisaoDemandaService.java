@@ -9,6 +9,7 @@ import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.PrevisaoDemandaIaRe
 import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.PrevisaoDemandaIaResponse;
 import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.ResumoPrevisaoDemandaResponse;
 import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.HistoricoPrevisaoDemandaResponse;
+import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.AnaliseRegressaoIaResponse;
 import br.com.fiap.enterprise_challenge3.model.PrevisaoDemanda;
 import br.com.fiap.enterprise_challenge3.repository.ConsultaPrevisaoDemandaRepository;
 import br.com.fiap.enterprise_challenge3.repository.HistoricoDemandaRepository;
@@ -335,40 +336,70 @@ public class PrevisaoDemandaService {
             PrevisaoDemandaIaItem item,
             PrevisaoDemandaIaResponse resposta
     ) {
-        return new PrevisaoDemanda(
-                item.categoriaId(),
-                item.subservicoId(),
-                item.bairro(),
+        PrevisaoDemanda previsao =
+                new PrevisaoDemanda(
+                        item.categoriaId(),
+                        item.subservicoId(),
+                        item.bairro(),
 
-                resposta.periodoHistoricoDias(),
-                resposta.periodoPrevisaoDias(),
+                        resposta.periodoHistoricoDias(),
+                        resposta.periodoPrevisaoDias(),
 
-                item.ocorrenciasHistoricas(),
+                        item.ocorrenciasHistoricas(),
 
-                BigDecimal.valueOf(
-                        item.mediaDiaria()
-                ),
+                        BigDecimal.valueOf(
+                                item.mediaDiaria()
+                        ),
 
-                BigDecimal.valueOf(
-                        item.tendenciaPercentual()
-                ),
+                        BigDecimal.valueOf(
+                                item.tendenciaPercentual()
+                        ),
 
-                BigDecimal.valueOf(
-                        item.quantidadePrevista()
-                ),
+                        BigDecimal.valueOf(
+                                item.quantidadePrevista()
+                        ),
 
-                item.tendencia(),
-                item.nivelDemanda(),
+                        item.tendencia(),
+                        item.nivelDemanda(),
 
-                BigDecimal.valueOf(
-                        item.confianca()
-                ),
+                        BigDecimal.valueOf(
+                                item.confianca()
+                        ),
 
-                item.justificativa(),
-                item.nomeModelo(),
-                item.versaoModelo(),
+                        item.justificativa(),
+                        item.nomeModelo(),
+                        item.versaoModelo(),
 
-                resposta.dataGeracao()
+                        resposta.dataGeracao()
+                );
+
+        aplicarAnaliseRegressao(
+                previsao,
+                item.analiseRegressao()
+        );
+
+        return previsao;
+    }
+
+    private void aplicarAnaliseRegressao(
+            PrevisaoDemanda previsao,
+            AnaliseRegressaoIaResponse analise
+    ) {
+        if (analise == null) {
+            return;
+        }
+
+        previsao.aplicarAnaliseRegressao(
+                analise.coeficienteCorrelacao(),
+                analise.coeficienteDeterminacao(),
+                analise.coeficienteAngular(),
+                analise.intercepto(),
+                analise.equacao(),
+                analise.forcaCorrelacao(),
+                analise.tendencia(),
+                analise.quantidadeDias(),
+                analise.variacaoEstimadaPercentual(),
+                analise.interpretacao()
         );
     }
 

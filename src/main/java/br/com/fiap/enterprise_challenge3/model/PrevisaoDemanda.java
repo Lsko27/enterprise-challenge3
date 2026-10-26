@@ -1,6 +1,12 @@
 package br.com.fiap.enterprise_challenge3.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -119,6 +125,72 @@ public class PrevisaoDemanda {
     private String versaoModelo;
 
     @Column(
+            name = "NR_COEF_CORRELACAO",
+            precision = 12,
+            scale = 6
+    )
+    private BigDecimal coeficienteCorrelacao;
+
+    @Column(
+            name = "NR_COEF_DETERMINACAO",
+            precision = 12,
+            scale = 6
+    )
+    private BigDecimal coeficienteDeterminacao;
+
+    @Column(
+            name = "NR_COEF_ANGULAR",
+            precision = 16,
+            scale = 6
+    )
+    private BigDecimal coeficienteAngular;
+
+    @Column(
+            name = "NR_INTERCEPTO",
+            precision = 16,
+            scale = 6
+    )
+    private BigDecimal intercepto;
+
+    @Column(
+            name = "DS_EQUACAO",
+            length = 150
+    )
+    private String equacao;
+
+    @Column(
+            name = "DS_FORCA_CORRELACAO",
+            length = 20
+    )
+    private String forcaCorrelacao;
+
+    @Column(
+            name = "DS_TENDENCIA_REGRESSAO",
+            length = 20
+    )
+    private String tendenciaRegressao;
+
+    @Column(
+            name = "NR_QTD_DIAS_REGRESSAO",
+            precision = 4,
+            scale = 0
+    )
+    private Integer quantidadeDiasRegressao;
+
+    @Column(
+            name = "NR_VARIACAO_ESTIMADA",
+            precision = 10,
+            scale = 2
+    )
+    private BigDecimal variacaoEstimadaPercentual;
+
+    @Column(
+            name = "DS_INTERPRETACAO_REGRESSAO",
+            length = 1000
+    )
+    private String interpretacaoRegressao;
+
+    @Column(
             name = "DT_PREVISAO",
             nullable = false
     )
@@ -161,6 +233,46 @@ public class PrevisaoDemanda {
         this.nomeModelo = nomeModelo;
         this.versaoModelo = versaoModelo;
         this.dataPrevisao = dataPrevisao;
+    }
+
+    public void aplicarAnaliseRegressao(
+            BigDecimal coeficienteCorrelacao,
+            BigDecimal coeficienteDeterminacao,
+            BigDecimal coeficienteAngular,
+            BigDecimal intercepto,
+            String equacao,
+            String forcaCorrelacao,
+            String tendenciaRegressao,
+            Integer quantidadeDiasRegressao,
+            BigDecimal variacaoEstimadaPercentual,
+            String interpretacaoRegressao
+    ) {
+        this.coeficienteCorrelacao =
+                coeficienteCorrelacao;
+
+        this.coeficienteDeterminacao =
+                coeficienteDeterminacao;
+
+        this.coeficienteAngular =
+                coeficienteAngular;
+
+        this.intercepto = intercepto;
+        this.equacao = equacao;
+
+        this.forcaCorrelacao =
+                forcaCorrelacao;
+
+        this.tendenciaRegressao =
+                tendenciaRegressao;
+
+        this.quantidadeDiasRegressao =
+                quantidadeDiasRegressao;
+
+        this.variacaoEstimadaPercentual =
+                variacaoEstimadaPercentual;
+
+        this.interpretacaoRegressao =
+                interpretacaoRegressao;
     }
 
     public Long getId() {
@@ -225,6 +337,46 @@ public class PrevisaoDemanda {
 
     public String getVersaoModelo() {
         return versaoModelo;
+    }
+
+    public BigDecimal getCoeficienteCorrelacao() {
+        return coeficienteCorrelacao;
+    }
+
+    public BigDecimal getCoeficienteDeterminacao() {
+        return coeficienteDeterminacao;
+    }
+
+    public BigDecimal getCoeficienteAngular() {
+        return coeficienteAngular;
+    }
+
+    public BigDecimal getIntercepto() {
+        return intercepto;
+    }
+
+    public String getEquacao() {
+        return equacao;
+    }
+
+    public String getForcaCorrelacao() {
+        return forcaCorrelacao;
+    }
+
+    public String getTendenciaRegressao() {
+        return tendenciaRegressao;
+    }
+
+    public Integer getQuantidadeDiasRegressao() {
+        return quantidadeDiasRegressao;
+    }
+
+    public BigDecimal getVariacaoEstimadaPercentual() {
+        return variacaoEstimadaPercentual;
+    }
+
+    public String getInterpretacaoRegressao() {
+        return interpretacaoRegressao;
     }
 
     public LocalDateTime getDataPrevisao() {

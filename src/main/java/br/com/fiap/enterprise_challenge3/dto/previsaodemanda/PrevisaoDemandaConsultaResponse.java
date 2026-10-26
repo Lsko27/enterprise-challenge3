@@ -29,6 +29,19 @@ public record PrevisaoDemandaConsultaResponse(
         BigDecimal confianca,
         String justificativa,
 
+        BigDecimal coeficienteCorrelacao,
+        BigDecimal coeficienteDeterminacao,
+        BigDecimal coeficienteAngular,
+        BigDecimal intercepto,
+
+        String equacao,
+        String forcaCorrelacao,
+        String tendenciaRegressao,
+
+        Integer quantidadeDiasRegressao,
+        BigDecimal variacaoEstimadaPercentual,
+        String interpretacaoRegressao,
+
         String nomeModelo,
         String versaoModelo,
 

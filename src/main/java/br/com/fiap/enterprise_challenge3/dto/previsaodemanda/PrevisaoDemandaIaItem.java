@@ -22,6 +22,9 @@ public record PrevisaoDemandaIaItem(
         double confianca,
 
         String justificativa,
+
+        AnaliseRegressaoIaResponse analiseRegressao,
+
         String nomeModelo,
         String versaoModelo
 ) {

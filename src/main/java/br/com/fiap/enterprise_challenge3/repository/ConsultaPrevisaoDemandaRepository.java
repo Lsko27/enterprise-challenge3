@@ -1,15 +1,14 @@
 package br.com.fiap.enterprise_challenge3.repository;
 
+import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.HistoricoPrevisaoDemandaResponse;
 import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.PrevisaoDemandaConsultaResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import br.com.fiap.enterprise_challenge3.dto.previsaodemanda.HistoricoPrevisaoDemandaResponse;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class ConsultaPrevisaoDemandaRepository {
@@ -26,9 +25,9 @@ public class ConsultaPrevisaoDemandaRepository {
     buscarDataUltimaGeracao() {
 
         String sql = """
-            SELECT MAX(DT_PREVISAO)
-            FROM T_ETP_PREVISAO_DEMANDA
-            """;
+                SELECT MAX(DT_PREVISAO)
+                FROM T_ETP_PREVISAO_DEMANDA
+                """;
 
         Timestamp dataUltimaGeracao =
                 jdbcTemplate.queryForObject(
@@ -73,6 +72,19 @@ public class ConsultaPrevisaoDemandaRepository {
                     P.NR_CONFIANCA,
                     P.DS_JUSTIFICATIVA,
 
+                    P.NR_COEF_CORRELACAO,
+                    P.NR_COEF_DETERMINACAO,
+                    P.NR_COEF_ANGULAR,
+                    P.NR_INTERCEPTO,
+
+                    P.DS_EQUACAO,
+                    P.DS_FORCA_CORRELACAO,
+                    P.DS_TENDENCIA_REGRESSAO,
+
+                    P.NR_QTD_DIAS_REGRESSAO,
+                    P.NR_VARIACAO_ESTIMADA,
+                    P.DS_INTERPRETACAO_REGRESSAO,
+
                     P.NM_MODELO,
                     P.DS_VERSAO_MODELO,
                     P.DT_PREVISAO
@@ -99,10 +111,15 @@ public class ConsultaPrevisaoDemandaRepository {
         return jdbcTemplate.query(
                 sql,
                 (resultSet, rowNumber) -> {
-
                     Timestamp dataPrevisao =
                             resultSet.getTimestamp(
                                     "DT_PREVISAO"
+                            );
+
+                    Integer quantidadeDiasRegressao =
+                            resultSet.getObject(
+                                    "NR_QTD_DIAS_REGRESSAO",
+                                    Integer.class
                             );
 
                     return new PrevisaoDemandaConsultaResponse(
@@ -170,6 +187,44 @@ public class ConsultaPrevisaoDemandaRepository {
                                     "DS_JUSTIFICATIVA"
                             ),
 
+                            resultSet.getBigDecimal(
+                                    "NR_COEF_CORRELACAO"
+                            ),
+
+                            resultSet.getBigDecimal(
+                                    "NR_COEF_DETERMINACAO"
+                            ),
+
+                            resultSet.getBigDecimal(
+                                    "NR_COEF_ANGULAR"
+                            ),
+
+                            resultSet.getBigDecimal(
+                                    "NR_INTERCEPTO"
+                            ),
+
+                            resultSet.getString(
+                                    "DS_EQUACAO"
+                            ),
+
+                            resultSet.getString(
+                                    "DS_FORCA_CORRELACAO"
+                            ),
+
+                            resultSet.getString(
+                                    "DS_TENDENCIA_REGRESSAO"
+                            ),
+
+                            quantidadeDiasRegressao,
+
+                            resultSet.getBigDecimal(
+                                    "NR_VARIACAO_ESTIMADA"
+                            ),
+
+                            resultSet.getString(
+                                    "DS_INTERPRETACAO_REGRESSAO"
+                            ),
+
                             resultSet.getString(
                                     "NM_MODELO"
                             ),
@@ -188,84 +243,83 @@ public class ConsultaPrevisaoDemandaRepository {
     buscarHistoricoGeracoes() {
 
         String sql = """
-            SELECT
-                P.DT_PREVISAO,
+                SELECT
+                    P.DT_PREVISAO,
 
-                MAX(
-                    P.NR_PERIODO_HISTORICO_DIAS
-                ) AS NR_PERIODO_HISTORICO_DIAS,
+                    MAX(
+                        P.NR_PERIODO_HISTORICO_DIAS
+                    ) AS NR_PERIODO_HISTORICO_DIAS,
 
-                MAX(
-                    P.NR_PERIODO_PREVISAO_DIAS
-                ) AS NR_PERIODO_PREVISAO_DIAS,
+                    MAX(
+                        P.NR_PERIODO_PREVISAO_DIAS
+                    ) AS NR_PERIODO_PREVISAO_DIAS,
 
-                COUNT(*) AS TOTAL_PREVISOES,
+                    COUNT(*) AS TOTAL_PREVISOES,
 
-                SUM(
-                    P.NR_OCORRENCIAS_HISTORICAS
-                ) AS TOTAL_OCORRENCIAS_HISTORICAS,
+                    SUM(
+                        P.NR_OCORRENCIAS_HISTORICAS
+                    ) AS TOTAL_OCORRENCIAS_HISTORICAS,
 
-                SUM(
-                    P.NR_QUANTIDADE_PREVISTA
-                ) AS QUANTIDADE_TOTAL_PREVISTA,
+                    SUM(
+                        P.NR_QUANTIDADE_PREVISTA
+                    ) AS QUANTIDADE_TOTAL_PREVISTA,
 
-                SUM(
-                    CASE
-                        WHEN P.DS_NIVEL_DEMANDA = 'CRITICA'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS DEMANDAS_CRITICAS,
+                    SUM(
+                        CASE
+                            WHEN P.DS_NIVEL_DEMANDA = 'CRITICA'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS DEMANDAS_CRITICAS,
 
-                SUM(
-                    CASE
-                        WHEN P.DS_NIVEL_DEMANDA = 'ALTA'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS DEMANDAS_ALTAS,
+                    SUM(
+                        CASE
+                            WHEN P.DS_NIVEL_DEMANDA = 'ALTA'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS DEMANDAS_ALTAS,
 
-                SUM(
-                    CASE
-                        WHEN P.DS_NIVEL_DEMANDA = 'MEDIA'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS DEMANDAS_MEDIAS,
+                    SUM(
+                        CASE
+                            WHEN P.DS_NIVEL_DEMANDA = 'MEDIA'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS DEMANDAS_MEDIAS,
 
-                SUM(
-                    CASE
-                        WHEN P.DS_NIVEL_DEMANDA = 'BAIXA'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS DEMANDAS_BAIXAS,
+                    SUM(
+                        CASE
+                            WHEN P.DS_NIVEL_DEMANDA = 'BAIXA'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS DEMANDAS_BAIXAS,
 
-                MAX(
-                    P.NR_CONFIANCA
-                ) AS MAIOR_CONFIANCA,
+                    MAX(
+                        P.NR_CONFIANCA
+                    ) AS MAIOR_CONFIANCA,
 
-                MAX(
-                    P.NM_MODELO
-                ) AS NM_MODELO,
+                    MAX(
+                        P.NM_MODELO
+                    ) AS NM_MODELO,
 
-                MAX(
-                    P.DS_VERSAO_MODELO
-                ) AS DS_VERSAO_MODELO
+                    MAX(
+                        P.DS_VERSAO_MODELO
+                    ) AS DS_VERSAO_MODELO
 
-            FROM T_ETP_PREVISAO_DEMANDA P
+                FROM T_ETP_PREVISAO_DEMANDA P
 
-            GROUP BY
-                P.DT_PREVISAO
+                GROUP BY
+                    P.DT_PREVISAO
 
-            ORDER BY
-                P.DT_PREVISAO DESC
-            """;
+                ORDER BY
+                    P.DT_PREVISAO DESC
+                """;
 
         return jdbcTemplate.query(
                 sql,
                 (resultSet, rowNumber) -> {
-
                     Timestamp dataPrevisao =
                             resultSet.getTimestamp(
                                     "DT_PREVISAO"

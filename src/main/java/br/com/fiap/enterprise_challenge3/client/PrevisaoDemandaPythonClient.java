@@ -26,8 +26,7 @@ public class PrevisaoDemandaPythonClient {
     public PrevisaoDemandaPythonClient(
             JsonMapper jsonMapper,
             @Value(
-                    "${govatende.ia.url:"
-                            + "http://127.0.0.1:8000}"
+                    "${govatende.ia.base-url:http://127.0.0.1:8000}"
             )
             String iaUrl
     ) {
