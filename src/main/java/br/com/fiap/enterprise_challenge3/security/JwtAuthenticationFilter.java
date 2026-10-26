@@ -20,10 +20,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class JwtAuthenticationFilter
         extends OncePerRequestFilter {
+
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    private static final String PERFIL_CIDADAO =
+            "CIDADAO";
+
+    private static final String PERFIL_SERVIDOR =
+            "SERVIDOR";
+
+    private static final String PERFIL_AUDITOR =
+            "AUDITOR";
 
     private final JwtService jwtService;
     private final CidadaoRepository cidadaoRepository;
@@ -51,15 +63,11 @@ public class JwtAuthenticationFilter
                         HttpHeaders.AUTHORIZATION
                 );
 
-        if (
-                cabecalho == null
-                        || !cabecalho.startsWith(
-                        "Bearer "
-                )
-        ) {
-            filterChain.doFilter(
+        if (!possuiBearerToken(cabecalho)) {
+            continuarFiltro(
                     request,
-                    response
+                    response,
+                    filterChain
             );
 
             return;
@@ -67,75 +75,122 @@ public class JwtAuthenticationFilter
 
         String token =
                 cabecalho
-                        .substring(7)
+                        .substring(
+                                BEARER_PREFIX.length()
+                        )
                         .trim();
 
-        try {
-            Long usuarioId =
-                    jwtService.extrairUsuarioId(
-                            token
-                    );
-
-            String perfilDoToken =
-                    jwtService.extrairPerfil(
-                            token
-                    );
-
-            boolean naoAutenticado =
-                    SecurityContextHolder
-                            .getContext()
-                            .getAuthentication()
-                            == null;
-
-            if (naoAutenticado) {
-                autenticarUsuario(
-                        usuarioId,
-                        perfilDoToken,
-                        request
-                );
-            }
-
-        } catch (
-                JwtException
-                | IllegalArgumentException exception
-        ) {
+        if (token.isBlank()) {
             SecurityContextHolder.clearContext();
-        }
 
-        filterChain.doFilter(
-                request,
-                response
-        );
-    }
-
-    private void autenticarUsuario(
-            Long usuarioId,
-            String perfilDoToken,
-            HttpServletRequest request
-    ) {
-        if (
-                "CIDADAO".equals(
-                        perfilDoToken
-                )
-        ) {
-            autenticarCidadao(
-                    usuarioId,
-                    request
+            continuarFiltro(
+                    request,
+                    response,
+                    filterChain
             );
 
             return;
         }
 
-        if (
-                "SERVIDOR".equals(
-                        perfilDoToken
-                )
-        ) {
-            autenticarServidor(
-                    usuarioId,
+        try {
+            autenticarToken(
+                    token,
                     request
             );
+
+        } catch (
+                JwtException
+                | IllegalArgumentException exception
+        ) {
+            /*
+             * Um token inválido, expirado ou malformado
+             * não deve autenticar a requisição.
+             *
+             * A rota protegida será posteriormente
+             * respondida pelo AuthenticationEntryPoint.
+             */
+            SecurityContextHolder.clearContext();
         }
+
+        continuarFiltro(
+                request,
+                response,
+                filterChain
+        );
+    }
+
+    private boolean possuiBearerToken(
+            String cabecalho
+    ) {
+        return cabecalho != null
+                && cabecalho.startsWith(
+                BEARER_PREFIX
+        );
+    }
+
+    private void autenticarToken(
+            String token,
+            HttpServletRequest request
+    ) {
+        if (
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                        != null
+        ) {
+            return;
+        }
+
+        Long usuarioId =
+                jwtService.extrairUsuarioId(
+                        token
+                );
+
+        String perfilDoToken =
+                normalizarPerfil(
+                        jwtService.extrairPerfil(
+                                token
+                        )
+                );
+
+        switch (perfilDoToken) {
+            case PERFIL_CIDADAO ->
+                    autenticarCidadao(
+                            usuarioId,
+                            request
+                    );
+
+            case PERFIL_SERVIDOR,
+                 PERFIL_AUDITOR ->
+                    autenticarServidorOuAuditor(
+                            usuarioId,
+                            perfilDoToken,
+                            request
+                    );
+
+            default -> {
+                /*
+                 * Perfis desconhecidos não recebem
+                 * autenticação.
+                 */
+            }
+        }
+    }
+
+    private String normalizarPerfil(
+            String perfil
+    ) {
+        if (perfil == null || perfil.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Perfil ausente no token"
+            );
+        }
+
+        return perfil
+                .trim()
+                .toUpperCase(
+                        Locale.ROOT
+                );
     }
 
     private void autenticarCidadao(
@@ -162,13 +217,14 @@ public class JwtAuthenticationFilter
 
         criarAutenticacao(
                 cidadao.getId(),
-                "ROLE_CIDADAO",
+                PERFIL_CIDADAO,
                 request
         );
     }
 
-    private void autenticarServidor(
+    private void autenticarServidorOuAuditor(
             Long servidorId,
+            String perfilDoToken,
             HttpServletRequest request
     ) {
         Servidor servidor =
@@ -185,28 +241,49 @@ public class JwtAuthenticationFilter
                                 null
                         );
 
-        if (servidor == null) {
+        if (
+                servidor == null
+                        || servidor.getPerfil() == null
+        ) {
             return;
         }
 
-        String autoridade =
-                "ROLE_"
-                        + servidor
+        String perfilAtual =
+                servidor
                         .getPerfil()
                         .name();
 
+        /*
+         * Impede que um token emitido para um perfil
+         * diferente daquele atualmente registrado no
+         * banco seja utilizado.
+         *
+         * Isso também invalida, na prática, tokens
+         * antigos após uma alteração de perfil.
+         */
+        if (
+                !perfilAtual.equals(
+                        perfilDoToken
+                )
+        ) {
+            return;
+        }
+
         criarAutenticacao(
                 servidor.getId(),
-                autoridade,
+                perfilAtual,
                 request
         );
     }
 
     private void criarAutenticacao(
             Long usuarioId,
-            String autoridade,
+            String perfil,
             HttpServletRequest request
     ) {
+        String autoridade =
+                "ROLE_" + perfil;
+
         List<SimpleGrantedAuthority> permissoes =
                 List.of(
                         new SimpleGrantedAuthority(
@@ -238,6 +315,17 @@ public class JwtAuthenticationFilter
 
         SecurityContextHolder.setContext(
                 context
+        );
+    }
+
+    private void continuarFiltro(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+        filterChain.doFilter(
+                request,
+                response
         );
     }
 }

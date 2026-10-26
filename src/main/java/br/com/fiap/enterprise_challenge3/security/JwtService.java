@@ -41,11 +41,19 @@ public class JwtService {
         );
     }
 
-    public String gerarToken(Servidor servidor) {
+    public String gerarToken(
+            Servidor servidor
+    ) {
+        if (servidor.getPerfil() == null) {
+            throw new IllegalArgumentException(
+                    "O servidor precisa possuir um perfil"
+            );
+        }
+
         return gerarToken(
                 servidor.getId(),
                 servidor.getNome(),
-                "SERVIDOR"
+                servidor.getPerfil().name()
         );
     }
 
