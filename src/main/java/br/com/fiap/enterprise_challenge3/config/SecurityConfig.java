@@ -3,6 +3,7 @@ package br.com.fiap.enterprise_challenge3.config;
 import br.com.fiap.enterprise_challenge3.security.AuditoriaAccessDeniedHandler;
 import br.com.fiap.enterprise_challenge3.security.AuditoriaAuthenticationEntryPoint;
 import br.com.fiap.enterprise_challenge3.security.JwtAuthenticationFilter;
+import br.com.fiap.enterprise_challenge3.security.LoginRateLimitFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,10 +31,14 @@ public class SecurityConfig {
     private final AuditoriaAccessDeniedHandler
             accessDeniedHandler;
 
+    private final LoginRateLimitFilter
+            loginRateLimitFilter;
+
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AuditoriaAuthenticationEntryPoint authenticationEntryPoint,
-            AuditoriaAccessDeniedHandler accessDeniedHandler
+            AuditoriaAccessDeniedHandler accessDeniedHandler,
+            LoginRateLimitFilter loginRateLimitFilter
     ) {
         this.jwtAuthenticationFilter =
                 jwtAuthenticationFilter;
@@ -43,6 +48,9 @@ public class SecurityConfig {
 
         this.accessDeniedHandler =
                 accessDeniedHandler;
+
+        this.loginRateLimitFilter =
+                loginRateLimitFilter;
     }
 
     @Bean
@@ -356,6 +364,11 @@ public class SecurityConfig {
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
+                )
+
+                .addFilterBefore(
+                        loginRateLimitFilter,
+                        JwtAuthenticationFilter.class
                 );
 
         return http.build();
