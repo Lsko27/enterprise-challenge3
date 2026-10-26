@@ -13,6 +13,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -169,6 +171,36 @@ public class SecurityConfig {
                                 )
                                 .accessDeniedHandler(
                                         accessDeniedHandler
+                                )
+                )
+
+                .headers(headers ->
+                        headers
+                                .frameOptions(frame ->
+                                        frame.deny()
+                                )
+                                .httpStrictTransportSecurity(hsts ->
+                                        hsts
+                                                .includeSubDomains(true)
+                                                .preload(true)
+                                                .maxAgeInSeconds(
+                                                        31536000
+                                                )
+                                )
+                                .referrerPolicy(referrer ->
+                                        referrer.policy(
+                                                ReferrerPolicyHeaderWriter
+                                                        .ReferrerPolicy
+                                                        .NO_REFERRER
+                                        )
+                                )
+                                .addHeaderWriter(
+                                        new StaticHeadersWriter(
+                                                "Permissions-Policy",
+                                                "camera=(), "
+                                                        + "microphone=(), "
+                                                        + "geolocation=()"
+                                        )
                                 )
                 )
 
